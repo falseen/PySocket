@@ -39,8 +39,13 @@ ip_numbers = 2         # 设置每个端口的允许通过的ip数量，即设�
 
 def enhance_method(_class, method_name, replacement):
     method = getattr(_class, method_name)
-    setattr(_class, method_name,
-            types.MethodType(lambda *args, **kwds: replacement(method, *args, **kwds), None, _class))
+    info = sys.version_info
+    if info[0] == 3:
+        setattr(_class, method_name,
+                types.MethodType(lambda *args, **kwds: replacement(method, *args, **kwds), _class))
+    else:
+        setattr(_class, method_name,
+                types.MethodType(lambda *args, **kwds: replacement(method, *args, **kwds), None, _class))
 
 
 def re_accept(old_method, self, *args, **kwds):
