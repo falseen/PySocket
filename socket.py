@@ -34,7 +34,7 @@ sys.path.insert(0, path)
 
 
 clean_time = 60         # 设置清理ip的时间间隔，在此时间内无连接的ip会被清理
-ip_numbers = 2         # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
+ip_numbers = 1         # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
 
 
 def enhance_method(_class, method_name, replacement):
@@ -87,7 +87,7 @@ def re_accept(old_method, self, *args, **kwds):
                 if time.time() - float(x.split('#')[1]) - 30 > clean_time:
                     self._list_client_ip.remove(x)
                     self._list_client_ip.append('%s#%s' % (server_ip_port_client_ip, time.time()))
-                    logging.info("[socket] remove time out ip and add new ip")
+                    logging.info("[socket] remove time out ip and add new ip %s" % server_ip_port_client_ip )
                     return return_value
             logging.debug("[socket] client more then the %s" % ip_numbers)
         else:
@@ -96,4 +96,5 @@ def re_accept(old_method, self, *args, **kwds):
 
 enhance_method(socket.socket, 'accept', re_accept)
 setattr(socket.socket, '_list_client_ip', [])
+
 
