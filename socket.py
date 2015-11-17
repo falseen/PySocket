@@ -1,17 +1,32 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
+# Copyright 2015 Falseen
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
 # 功能：限制客户端数量（基于ip判断）
 #
 # 使用说明：1.将此文件放在ss根目录中即可生效，不用做其他设置（需要重新运行ss）。
-#          2.修改38行的 clean_time 和 ip_numbers 为你想要的数值。
+#          2.修改53、54行的 clean_time 和 ip_numbers 为你想要的数值。
 #          3.如果你的服务器有ipv6,并且你想让ip4和ip6分开限制，则可以设置 only_port 为 False 。
 #
 #
 # 原理：默认情况下，ss在运行的时候会引用系统中的socket文件，但是把这个socket文件放到ss目录之后,ss就会引用这个我们自定义的socket文件。
 #      然后在这个文件中再引用真正的socket包，并在原socket的基础上加以修改，最终ss调用的就是经过我们修改的socket文件了。
 #
-# 所以理论上任何引用了socket包的python程序都可以用这个文件来达到限制连接的ip数量的目的。
+# 所以理论上任何引用了socket包的python程序都可以用这个文件来达到限制连接ip数量的目的。
 #
 
 
