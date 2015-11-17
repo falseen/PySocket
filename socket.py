@@ -70,17 +70,18 @@ def re_accept(old_method, self, *args, **kwds):
         if len(self._list_client_ip) == 0:
             logging.debug("[socket] first add %s" % server_ip_port_client_ip)
             self._list_client_ip.append('%s#%s' % (server_ip_port_client_ip, time.time()))
+            return return_value
 
-
-        if server_ip_port_list().count(server_ip_port) < ip_numbers :
+        if server_ip_port_list().count(server_ip_port) < ip_numbers:
             if server_ip_port_client_ip in server_ip_port_client_ip_list() \
-                    and time.time() - last_time(server_ip_port_client_ip) > 30 :   # 如果存在,并且距上次更新相差30秒，则更新时间
+                    and time.time() - last_time(server_ip_port_client_ip) > 30:   # 如果存在,并且距上次更新相差30秒，则更新时间
                 _ip_index = server_ip_port_client_ip_list().index(server_ip_port_client_ip)
                 self._list_client_ip[_ip_index] = '%s#%s' % (server_ip_port_client_ip, time.time())
                 logging.debug('[socket] update the ip time')
             elif server_ip_port_client_ip not in server_ip_port_client_ip_list() :
                 self._list_client_ip.append('%s#%s' % (server_ip_port_client_ip, time.time()))
                 logging.debug("[socket] add %s" % server_ip_port_client_ip)
+            return return_value
 
         if server_ip_port_client_ip not in server_ip_port_client_ip_list():
             for x in [x for x in self._list_client_ip if x.split('-')[0] == server_ip_port]:
