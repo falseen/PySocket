@@ -112,6 +112,7 @@ def re_accept(old_method, self, *args, **kwds):
                         self._list_client_ip.append(['%s#%s' % (server_ip_port_client_ip, time.time()), self_socket])
                         return return_value
 
+        if int(time.time()) % 10 == 0:
             logging.debug("[re_socket] the port %s client more then the %s" % (server_ip_port, ip_numbers))
 
 
