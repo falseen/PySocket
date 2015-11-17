@@ -4,9 +4,9 @@
 # 功能：限制客户端数量（基于ip判断）
 #
 # 使用说明：将此文件放在ss根目录中即可生效，不用做其他设置（需要重新运行ss）。
-# 修改33行的 clean_time 和 ip_numbers 为你想要的数值。
+# 修改38行的 clean_time 和 ip_numbers 为你想要的数值。
 #
-# 原理：默认情况下，ss在运行的时候会引用系统中的socket文件，但是把这个socket文件放到ss目录之后，ss就会引用这个自定义的socket文件。
+# 原理：默认情况下，ss在运行的时候会引用系统中的socket文件，但是把这个socket文件放到ss目录之后,ss就会引用这个我们自定义的socket文件。
 #      然后在这个文件中再引用真正的socket包，并在原socket的基础上加以修改，最终ss调用的就是经过我们修改的socket文件了。
 #
 # 所以理论上任何引用了socket包的python程序都可以用这个文件来达到限制连接的ip数量的目的。
@@ -18,11 +18,13 @@ from __future__ import absolute_import, division, print_function, \
 
 import sys
 
-path = sys.path[0]
-sys.path.pop(0)
 del sys.modules['socket']
 
 import sys
+
+path = sys.path[0]
+sys.path.pop(0)
+
 import socket
 import time
 import logging
@@ -30,7 +32,10 @@ import types
 
 sys.path.insert(0, path)
 
-clean_time = 60        # 设置清理ip的时间间隔，在此时间内无连接的ip会被清理
+
+
+
+clean_time = 60         # 设置清理ip的时间间隔，在此时间内无连接的ip会被清理
 ip_numbers = 2         # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
 
 
