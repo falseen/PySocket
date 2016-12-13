@@ -52,8 +52,7 @@ sys.path.insert(0, path)
 
 clean_time = 60        # 设置清理ip的时间间隔，在此时间内无连接的ip会被清理
 ip_numbers = 2         # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
-only_port = True       # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据 ip+端口进行判断。
-
+only_port = True       # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据 服务端ip+端口进行判断
 
 # 动态path类方法
 def re_class_method(_class, method_name, re_method):
