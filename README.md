@@ -1,7 +1,7 @@
 # socket_path
 原文件分布在 https://gist.github.com/falseen/61861b9fe7fa643479bf ,为了方便管理，特迁移至此。
  
-##功能：限制客户端数量（基于ip判断）
+##功能：限制ss的客户端数量（基于ip判断）,理论上也可以用于其他使用了socket模块的python程序。
 
 使用说明：
 
