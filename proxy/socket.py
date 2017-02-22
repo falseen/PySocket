@@ -74,7 +74,6 @@ def pack_addr(address):
     return b'\x03' + chr(len(address)) + address
 
 
-
 # 动态path类方法
 def re_class_method(_class, method_name, re_method):
     method = getattr(_class, method_name)
@@ -95,22 +94,19 @@ def re_self_method(self, method_name, re_method):
 def re_send(old_method, self, *args, **kwds):
     data = args[0]
     fd = self.fileno()
-    self_id = "%s_%s" %(id(self), fd)
-    remote_addrs = self.getsockname()
-    if remote_addrs[1] != 1024 and self.type == 1:
+    self_id = "%d_%d" %(id(self), fd)
+    if self.type == 1:
         socks_stage = self._fd_to_self.get(self_id)["socks_stage"]
-        if socks_stage != "stream":        
+        if socks_stage != "stream":
             #print("remote_addrs %s:%d" %(remote_addrs[0], remote_addrs[1]))
             dst_addr, dst_port = self._fd_to_self.get(self_id)["dst_addrs"]
             #print("send sock %s:%d" %(self.getsockname()[0], self.getsockname()[1]))
             #print("send peer %s:%d" %(self.getpeername()[0], self.getpeername()[1]))
-            #print(dst_addr, dst_port)
             old_send = old_method
-            #logging.info("send SOCKS5_REQUEST_DATA")
+            logging.info("send socks5 hello")
             old_method(SOCKS5_REQUEST_DATA)
             time.sleep(0.01)
             recv_data = self.recv(BUF_SIZE)
-            #print(len(recv_data))
             if len(recv_data) == 2:
                 socks_type = self.type
                 socks5_cmd = struct.pack(">B", socks_type)
@@ -124,16 +120,14 @@ def re_send(old_method, self, *args, **kwds):
                 self._fd_to_self.get(self_id)["socks_stage"] = "stream"
                 return_value = old_method(data)
                 return return_value
-    return_value = old_method(data)
+    return_value = old_method(*args, **kwds)
     return return_value   
 
 def re_recv(old_method, self, *args, **kwds):
     BUF_SIZE = args[0]
     self_id = id(self)
     fd = self.fileno()
-    time.sleep(0.1)
     remote_addrs = self.getsockname()
-    #print(remote_addrs)
     return_value = old_method(BUF_SIZE)
     return return_value
 
@@ -142,7 +136,7 @@ def re_recv(old_method, self, *args, **kwds):
 def re_connect(old_method, self, *args, **kwds):
     dst_addr, dst_port = args[0]
     fd = self.fileno()
-    self_id = "%s_%s" %(id(self), fd)
+    self_id = "%d_%d" %(id(self), fd)
     self._fd_to_self.update({self_id : {"dst_addrs":(dst_addr, dst_port), 
                                     "socks_stage":"init", 
                                     "data":None,
@@ -150,12 +144,14 @@ def re_connect(old_method, self, *args, **kwds):
                                     }
                             })
     # print("connect sock %s:%d" %(self.getsockname()[0], self.getsockname()[1]))
-    print("connect dst %s:%d" %(dst_addr, dst_port))
+    logging.info("connect dst %s:%d" %(dst_addr, dst_port))
     re_self_method(self, 'send', re_send)
     re_self_method(self, 'sendto', re_send)
     #re_self_method(self, 'recv', re_recv)
     PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
     return_value = old_method(self, PROXY_ADDRS, **kwds)
+
+
 
 
 setattr(socket.socket, '_fd_to_self', {})
