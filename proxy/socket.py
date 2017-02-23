@@ -85,6 +85,8 @@ class new_socket(real_socket):
 
     def __init__(self, *args, **kwds):
         super(new_socket, self).__init__(*args, **kwds)
+        # new_self_method(self, 'sendto', new_sendto)
+        # new_self_method(self, 'recvfrom', new_recvfrom)
         self._is_proxy = False
 
 
@@ -165,7 +167,6 @@ def new_send(real_method, self, *args, **kwds):
 def new_sendto(real_method, self, *args, **kwds):
     data, dst_addrs = args
     dst_addr, dst_port = dst_addrs
-    print("dst_port", dst_port)
     if dst_port == 53:
         self._is_proxy = True
         UDP_SOCKS5_HEADER = b"\x00\x00\x00"
@@ -177,16 +178,19 @@ def new_sendto(real_method, self, *args, **kwds):
         new_args = args[2:]
         logging.debug("send udp socks5 data to %s:%d" %
                       (PROXY_ADDR, PROXY_PORT))
-        return_value = real_method(self, send_data, PROXY_ADDRS, *new_args, **kwds)
+        return_value = real_method(send_data, PROXY_ADDRS, *new_args, **kwds)
     else:
         return_value = real_method(*args, **kwds)
     return return_value
 
 
 def new_recvfrom(real_method, self, *args, **kwds):
-    return_value = real_method(self, *args, **kwds)
+    return_value = real_method(*args, **kwds)
     if self._is_proxy:
-        return_value = return_value[3:]
+        data, addr = return_value
+        print("data", binascii.hexlify(data))
+        return_value = (data, addr)
+
         logging.debug("recv udp socks5 data from %s:%d" %
                       (PROXY_ADDR, PROXY_PORT))
     return return_value
@@ -218,6 +222,5 @@ def new_connect(real_method, self, *args, **kwds):
     else:
         return_value = real_method(self, *args, **kwds)
 
-new_class_method(socket.socket, 'sendto', new_sendto)
-new_class_method(socket.socket, 'recvfrom', new_recvfrom)
+
 new_class_method(socket.socket, 'connect', new_connect)
