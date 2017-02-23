@@ -32,19 +32,20 @@ import functools
 path = sys.path[0]
 sys.path.pop(0)
 
-import socket    # import real socket
-
-sys.path.insert(0, path)
-
+# import real socket
+import socket
 import struct
 import binascii
+
+sys.path.insert(0, path)
+# make the real_socket
+real_socket = types.ClassType("real_socket", (socket.socket,), {})
 
 
 PROXY_TYPE = "socks5"
 PROXY_ADDR = "127.0.0.1"
 PROXY_PORT = 1080
 SOCKS5_REQUEST_DATA = b"\x05\x01\x00"
-
 BUF_SIZE = 32 * 1024
 
 
@@ -79,6 +80,18 @@ def pack_addr(address):
     return b'\x03' + chr(len(address)) + address
 
 
+# make a new socket class
+class new_socket(real_socket):
+
+    def __init__(self, *args, **kwds):
+        super(new_socket, self).__init__(*args, **kwds)
+        self._is_proxy = False
+
+
+# replace socket class to new_socket
+socket.socket = new_socket
+
+
 # 动态path类方法
 def new_class_method(_class, method_name, new_method):
     method = getattr(_class, method_name)
@@ -110,7 +123,8 @@ def set_self_blocking(function):
                 self.setblocking(True)
             return function(*args, **kwargs)
         except Exception as e:
-            pass
+            print(e)
+            raise
         finally:
             # set orgin blcoking
             if _is_blocking == 0:
@@ -141,6 +155,7 @@ def _SOCKS5_request(self, dst_addr, dst_port):
         logging.debug("connect socks5 proxy faild %s" %
                       binascii.hexlify(recv_data))
 
+
 # 处理send ，此处为实例方法
 def new_send(real_method, self, *args, **kwds):
     return_value = real_method(*args, **kwds)
@@ -148,7 +163,32 @@ def new_send(real_method, self, *args, **kwds):
 
 
 def new_sendto(real_method, self, *args, **kwds):
-    return_value = real_method(*args, **kwds)
+    data, dst_addrs = args
+    dst_addr, dst_port = dst_addrs
+    print("dst_port", dst_port)
+    if dst_port == 53:
+        self._is_proxy = True
+        UDP_SOCKS5_HEADER = b"\x00\x00\x00"
+        new_dst_addr = "8.8.8.8"
+        dst_addr_b = pack_addr(new_dst_addr)
+        dst_port_b = struct.pack('>H', dst_port)
+        send_data = UDP_SOCKS5_HEADER + dst_addr_b + dst_port_b + data
+        PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
+        new_args = args[2:]
+        logging.debug("send udp socks5 data to %s:%d" %
+                      (PROXY_ADDR, PROXY_PORT))
+        return_value = real_method(self, send_data, PROXY_ADDRS, *new_args, **kwds)
+    else:
+        return_value = real_method(*args, **kwds)
+    return return_value
+
+
+def new_recvfrom(real_method, self, *args, **kwds):
+    return_value = real_method(self, *args, **kwds)
+    if self._is_proxy:
+        return_value = return_value[3:]
+        logging.debug("recv udp socks5 data from %s:%d" %
+                      (PROXY_ADDR, PROXY_PORT))
     return return_value
 
 
@@ -161,9 +201,10 @@ def new_recv(real_method, self, *args, **kwds):
 @set_self_blocking
 def new_connect(real_method, self, *args, **kwds):
     new_self_method(self, 'send', new_send)
-    new_self_method(self, 'sendto', new_sendto)
+    # new_self_method(self, 'sendto', new_sendto)
     dst_addr, dst_port = args[0]
     real_connect = real_method
+    print(self._is_proxy)
     if self.type == 1:
         PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
         new_args = args[1:]
@@ -177,6 +218,6 @@ def new_connect(real_method, self, *args, **kwds):
     else:
         return_value = real_method(self, *args, **kwds)
 
-
-setattr(socket.socket, '_fd_to_self', {})
+new_class_method(socket.socket, 'sendto', new_sendto)
+new_class_method(socket.socket, 'recvfrom', new_recvfrom)
 new_class_method(socket.socket, 'connect', new_connect)
