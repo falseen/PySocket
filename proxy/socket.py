@@ -78,19 +78,6 @@ def pack_addr(address):
     return b'\x03' + chr(len(address)) + address
 
 
-# make a new socket class
-class new_socket(socket.socket):
-
-    def __init__(self, *args, **kwds):
-        super(new_socket, self).__init__(*args, **kwds)
-        # new_self_method(self, 'sendto', new_sendto)
-        # new_self_method(self, 'recvfrom', new_recvfrom)
-        self._is_proxy = False
-
-
-# replace socket class to new_socket
-socket.socket = new_socket
-
 
 # 动态patch类方法
 def new_class_method(_class, method_name, new_method):
@@ -115,13 +102,12 @@ def set_self_blocking(function):
 
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
-        self = args[1]
+        self = args[0]
         try:
             _is_blocking = self.gettimeout()
             # if not blocking then set blocking
             if _is_blocking == 0:
                 self.setblocking(True)
-
             return function(*args, **kwargs)
         except Exception as e:
             print(e)
@@ -224,5 +210,42 @@ def new_connect(real_method, self, *args, **kwds):
     else:
         return_value = real_method(self, *args, **kwds)
 
+# make a new socket class
+class new_socket(socket.socket):
 
-new_class_method(socket.socket, 'connect', new_connect)
+    def __init__(self, *args, **kwds):
+        super(new_socket, self).__init__(*args, **kwds)
+        # new_self_method(self, 'sendto', new_sendto)
+        # new_self_method(self, 'recvfrom', new_recvfrom)
+        self._is_proxy = False
+    
+    
+    @set_self_blocking
+    def connect(self, *args, **kwds):
+
+        if self.type == 1:
+            dst_addr, dst_port = args[0]
+            PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
+            new_args = args[1:]
+            logging.info("connect dst %s:%d use proxy %s:%d" %
+                        (dst_addr, dst_port, PROXY_ADDR, PROXY_PORT))
+            try:
+                super(new_socket, self).connect(PROXY_ADDRS, *new_args, **kwds)
+            except socket.error as ERROR:
+                logging.error("%s Connt connect to proxy %s:%d" %
+                            (ERROR, PROXY_ADDR, PROXY_PORT))
+                raise
+            else:
+                _SOCKS5_request(self, dst_addr, dst_port)
+        elif self.type == 3:
+            # UDP TODO
+            pass
+        else:
+            return_value = super(new_socket, self).connect(*args, **kwds)
+        
+
+
+# replace socket class to new_socket
+socket.socket = new_socket
+
+#new_class_method(socket.socket, 'connect', new_connect)
