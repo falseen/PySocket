@@ -202,12 +202,10 @@ def new_recv(real_method, self, *args, **kwds):
 # 处理connect，此处为类方法
 @set_self_blocking
 def new_connect(real_method, self, *args, **kwds):
-    new_self_method(self, 'send', new_send)
-    # new_self_method(self, 'sendto', new_sendto)
-    dst_addr, dst_port = args[0]
-    real_connect = real_method
-    print(self._is_proxy)
+
     if self.type == 1:
+        dst_addr, dst_port = args[0]
+        real_connect = real_method
         PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
         new_args = args[1:]
         logging.info("connect dst %s:%d use proxy %s:%d" %
