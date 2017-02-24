@@ -23,5 +23,6 @@ import shadowsocks.asyncdns
 shadowsocks.asyncdns.DNSResolver.resolve = new_resolve
 
 ```
-      
 
+## TODO
+增加类似acl的功能，过滤一些本地私有地址或其他地址。
