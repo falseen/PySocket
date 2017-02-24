@@ -948,15 +948,3 @@ class socksocket(_BaseSocket):
 
 set_default_proxy(PROXY_TYPE, PROXY_ADDR, PROXY_PORT)
 socket.socket = socksocket
-
-
-# hook shadowsocks's code remove the dns req
-def new_resolve(self,  hostname, callback):
-    callback((hostname, hostname), None)
-
-modules_list = ["shadowsocks.common", "shadowsocks.shell"]
-for x in modules_list:
-    del sys.modules[x]
-
-import shadowsocks.asyncdns
-shadowsocks.asyncdns.DNSResolver.resolve = new_resolve
