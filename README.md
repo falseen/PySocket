@@ -19,9 +19,9 @@ PySocket ，一个通过猴子补丁（monkey patch）动态修改 socket 的项
 * **orgin_socket**：原始的socket，放在这里只是为了方便查看代码。毕竟 _socket.pyd 是加密的。
 
 
-部分代码来自 PySocks 项目：https://github.com/Anorov/PySocks
+代部分的代码来自 PySocks 项目：https://github.com/Anorov/PySocks
 
-
+本来我也实现了一个socks5，但http的不想自己写了，索性就用别人代码吧。PySocks 的代码质量还是比较高的，就是太复杂了。如果是我实现的话会简化不少。
 ## 原理说明：
 
 默认情况下，python程序在运行的时候会导入系统中的 socket 文件，但是把这个socket文件放到程序的目录之后, 它就会引用这个我们自定义的socket文件。 然后我们再在这个文件中再导入真正的socket包，并在原 socket 的基础上加以修改，最终程序调用的就是经过我们修改的socket文件了。
