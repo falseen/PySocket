@@ -38,8 +38,6 @@ import struct
 import binascii
 
 sys.path.insert(0, path)
-# make the real_socket
-real_socket = types.ClassType("real_socket", (socket.socket,), {})
 
 
 PROXY_TYPE = "socks5"
@@ -81,7 +79,7 @@ def pack_addr(address):
 
 
 # make a new socket class
-class new_socket(real_socket):
+class new_socket(socket.socket):
 
     def __init__(self, *args, **kwds):
         super(new_socket, self).__init__(*args, **kwds)
@@ -214,8 +212,14 @@ def new_connect(real_method, self, *args, **kwds):
         new_args = args[1:]
         logging.info("connect dst %s:%d use proxy %s:%d" %
                      (dst_addr, dst_port, PROXY_ADDR, PROXY_PORT))
-        real_connect(self, PROXY_ADDRS, *new_args, **kwds)
-        _SOCKS5_request(self, dst_addr, dst_port)
+        try:
+            real_connect(self, PROXY_ADDRS, *new_args, **kwds)
+        except socket.error as ERROR:
+            logging.error("%s Connt connect to proxy %s:%d" %
+                          (ERROR, PROXY_ADDR, PROXY_PORT))
+            raise
+        else:
+            _SOCKS5_request(self, dst_addr, dst_port)
     elif self.type == 3:
         # UDP TODO
         pass
