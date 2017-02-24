@@ -92,7 +92,7 @@ class new_socket(socket.socket):
 socket.socket = new_socket
 
 
-# 动态path类方法
+# 动态patch类方法
 def new_class_method(_class, method_name, new_method):
     method = getattr(_class, method_name)
     info = sys.version_info
@@ -104,7 +104,7 @@ def new_class_method(_class, method_name, new_method):
                 types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), None, _class))
 
 
-# 动态path实例方法
+# 动态patch实例方法
 def new_self_method(self, method_name, new_method):
     method = getattr(self, method_name)
     setattr(self, method_name, types.MethodType(lambda *args, **
