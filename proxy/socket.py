@@ -121,6 +121,7 @@ def set_self_blocking(function):
             # if not blocking then set blocking
             if _is_blocking == 0:
                 self.setblocking(True)
+
             return function(*args, **kwargs)
         except Exception as e:
             print(e)
@@ -205,13 +206,12 @@ def new_connect(real_method, self, *args, **kwds):
 
     if self.type == 1:
         dst_addr, dst_port = args[0]
-        real_connect = real_method
         PROXY_ADDRS = (PROXY_ADDR, PROXY_PORT)
         new_args = args[1:]
         logging.info("connect dst %s:%d use proxy %s:%d" %
                      (dst_addr, dst_port, PROXY_ADDR, PROXY_PORT))
         try:
-            real_connect(self, PROXY_ADDRS, *new_args, **kwds)
+            real_method(self, PROXY_ADDRS, *new_args, **kwds)
         except socket.error as ERROR:
             logging.error("%s Connt connect to proxy %s:%d" %
                           (ERROR, PROXY_ADDR, PROXY_PORT))
