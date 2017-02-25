@@ -79,25 +79,26 @@ def new_self_method(self, method_name, new_method):
     setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self, self))
 
 
+# 自定义 close 方法，让其在关闭的时候从列表中清理掉自身的 socket 或 ip。
+def new_close(orgin_method, self_socket, *args, **kwds):
+    addr, port = self_socket.getpeername()
+    self = self_socket
+    server_addrs = self._server_addrs
+    client_list = self._all_client_list[server_addrs]
+    if client_list.get(addr, None) != None:
+        last_up_time = client_list[addr]["last_up_time"]
+        if client_list[addr]["client_num"] <= 1 and time.time() - last_up_time > recv_timeout:
+            del client_list[addr]
+            logging.info("[socket] remove the client %s" % (addr))
+        else:
+            client_list[addr]["client_num"] -= 1
+            self._all_client_list[server_addrs].update(client_list)
+            # logging.debug("[socket] close the client socket %s:%d" % (addr, port))
+    return orgin_method(*args, **kwds)
+
+
 # 处理Tcp连接
 def new_accept(orgin_method, self, *args, **kwds):
-
-    # 自定义 close 方法，让其在关闭的时候从列表中清理掉自身的 socket 或 ip。
-    def new_close(orgin_method, socket_self, *args, **kwds):
-        addr, port = socket_self.getpeername()
-        server_addrs = self._server_addrs
-        client_list = self._all_client_list[server_addrs]
-        if client_list.get(addr, None) != None:
-            last_up_time = client_list[addr]["last_up_time"]
-            if client_list[addr]["client_num"] <= 1 and time.time() - last_up_time > recv_timeout:
-                del client_list[addr]
-                logging.info("[socket] remove the client %s" % (addr))
-            else:
-                client_list[addr]["client_num"] -= 1
-                self._all_client_list[server_addrs].update(client_list)
-                # logging.debug("[socket] close the client socket %s:%d" % (addr, port))
-        
-        return orgin_method(*args, **kwds)
 
     while True:
         return_value = orgin_method(self, *args, **kwds)
@@ -106,6 +107,7 @@ def new_accept(orgin_method, self, *args, **kwds):
         server_addrs = self._server_addrs
         client_list = self._all_client_list.get(server_addrs, {})
         if len(client_list) < limit_clients_num or client_ip in client_list:
+            self_socket._server_addrs = self._server_addrs
             new_self_method(self_socket, 'close', new_close)
             # logging.debug("[socket] add %s:%d" %(client_ip, client_port))
             if client_list.get(client_ip, None) == None:
@@ -122,6 +124,7 @@ def new_accept(orgin_method, self, *args, **kwds):
                     del self._all_client_list[server_addrs][k]
                     if set_close_timeout:
                         self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
+                    self_socket._server_addrs = self._server_addrs
                     new_self_method(self_socket, 'close', new_close)
                     return return_value
         if time.time() - self.last_log_time > 10:
