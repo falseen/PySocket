@@ -52,8 +52,7 @@ sys.path.insert(0, path)
 
 
 set_close_timeout = True  # 是否清理指定时间内无数据收发的连接， 如果为True则根据下面的两个选项进行清理，否则如果为 False 则不清理。
-recv_timeout = 10         # 设置清理连接的超时时间，在此时间内无连接或无数据 接收 的连接会被清理。
-send_timeout = 10       # 设置清理连接的超时时间，在此时间内无连接或无数据 发送 的连接会被清理。
+recv_timeout = 1000         # 设置清理连接的超时时间，单位毫秒，在此时间内无连接或无数据 接收 的连接会被清理。
 client_num = 1            # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
 only_port = True          # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据 服务端ip+端口进行判断
 
@@ -100,8 +99,6 @@ def new_accept(orgin_method, self, *args, **kwds):
             self._client_list[client_ip] += 1
             if set_close_timeout:
                 self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
-                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, send_timeout)
-                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, 0)
             return return_value
         server_addr, server_port = self.getsockname()
         logging.info("[socket] the %s:%d client more then the %s" % (server_addr, server_port, client_num))
