@@ -76,26 +76,24 @@ def new_accept(orgin_method, self, *args, **kwds):
 
     def new_close(orgin_method, socket_self, *args, **kwds):
         addr = socket_self.getpeername()[0]
-        fd = self_socket.fileno()
-        if len(self._client_list[addr]) == 1:
+        if self._client_list[addr] <= 1:
             del self._client_list[addr]
-            logging.info("[socket] close and remove the socket %s" % (addr))
+            logging.info("[socket] remove the socket %s" % (addr))
         else:
-            self._client_list[addr].remove(fd)
-            logging.info("[socket] close and remove the fd %s" % (addr))
+            self._client_list[addr] -= 1
+            logging.info("[socket] close the fd %s" % (addr))
         return orgin_method(*args, **kwds)
 
     while True:
         return_value = orgin_method(self, *args, **kwds)
         self_socket = return_value[0]
         client_ip, client_port = return_value[1]
-        fd = self_socket.fileno()
         if len(self._client_list) < client_num or client_ip in self._client_list:
             new_self_method(return_value[0], 'close', new_close)
             logging.info("[socket] add %s:%d" %(client_ip, client_port))
             if self._client_list.get(client_ip, None) == None:
-                self._client_list.update({client_ip:[]})
-            self._client_list[client_ip].append(fd)
+                self._client_list.update({client_ip : 0})
+            self._client_list[client_ip] += 1
             return return_value
         server_addr, server_port = self.getsockname()
         logging.info("[socket] the %s:%d client more then the %s" % (server_addr, server_port, client_num))
