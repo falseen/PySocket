@@ -19,7 +19,7 @@
 # 功能：限制客户端数量（基于ip判断）
 #
 # 使用说明：1.将此文件放在ss根目录中即可生效，不用做其他设置（需要重新运行ss）。
-#          2.修改53、54行的 clean_time 和 client_num 为你想要的数值。
+#          2.修改53、54行的 recv_timeout 和 client_num 为你想要的数值。
 #          3.如果你的服务器有ipv6,并且你想让ip4和ip6分开限制，则可以设置 only_port 为 False 。
 #
 #
@@ -50,9 +50,13 @@ import socket    # 导入真正的socket包
 sys.path.insert(0, path)
 
 
-clean_time = 60        # 设置清理ip的时间间隔，在此时间内无连接的ip会被清理
-client_num = 1    # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
-only_port = True       # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据 服务端ip+端口进行判断
+
+set_close_timeout = True  # 是否清理指定时间内无数据收发的连接， 如果为True则根据下面的两个选项进行清理，否则如果为 False 则不清理。
+recv_timeout = 10         # 设置清理连接的超时时间，在此时间内无连接或无数据 接收 的连接会被清理。
+send_timeout = 10       # 设置清理连接的超时时间，在此时间内无连接或无数据 发送 的连接会被清理。
+client_num = 1            # 设置每个端口的允许通过的ip数量，即设置客户端ip数量
+only_port = True          # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据 服务端ip+端口进行判断
+
 
 # 动态path类方法
 def new_class_method(_class, method_name, new_method):
@@ -75,13 +79,13 @@ def new_self_method(self, method_name, new_method):
 def new_accept(orgin_method, self, *args, **kwds):
 
     def new_close(orgin_method, socket_self, *args, **kwds):
-        addr = socket_self.getpeername()[0]
+        addr, port = socket_self.getpeername()
         if self._client_list[addr] <= 1:
             del self._client_list[addr]
-            logging.info("[socket] remove the socket %s" % (addr))
+            logging.info("[socket] remove the client %s" % (addr))
         else:
             self._client_list[addr] -= 1
-            logging.info("[socket] close the fd %s" % (addr))
+            logging.info("[socket] close the client socket %s:%d" % (addr, port))
         return orgin_method(*args, **kwds)
 
     while True:
@@ -94,6 +98,10 @@ def new_accept(orgin_method, self, *args, **kwds):
             if self._client_list.get(client_ip, None) == None:
                 self._client_list.update({client_ip : 0})
             self._client_list[client_ip] += 1
+            if set_close_timeout:
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, send_timeout)
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, 0)
             return return_value
         server_addr, server_port = self.getsockname()
         logging.info("[socket] the %s:%d client more then the %s" % (server_addr, server_port, client_num))
@@ -130,7 +138,7 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
 
             for x in [x for x in self._list_client_ip[server_ip_port]]:
                 is_closed = True
-                if time.time() - float(x[0].split('#')[1]) > clean_time:
+                if time.time() - float(x[0].split('#')[1]) > recv_timeout:
 
                     for y in x[1:]:
                         try:
