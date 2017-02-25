@@ -10,9 +10,9 @@ PySocket ，一个通过猴子补丁（monkey patch）动态修改 socket 的项
 项目中每个文件夹代表不同的功能。
 以下是每个文件夹的功能和说明。
 
-* **shadowosocks**： 给服务端添加前置代理的功能（原则上也适用于客户端），支持 http、socks4、socks5 代理。并且通过hook的方式去掉了ss的dns查询，ss在接收到数据之后会直接把域名和请求一起发给代理。
+* **shadowsocks**： 给服务端添加前置代理的功能（原则上也适用于客户端），支持 http、socks4、socks5 代理。并且通过hook的方式去掉了ss的dns查询，ss在接收到数据之后会直接把域名和请求一起发给代理。
       
-* **proxy**：基本跟shadowoscks一样，只是去掉了hook的代码。
+* **proxy**：基本跟shadowscks一样，只是去掉了hook的代码。
 
 * **Limit_Clients**：限制客户端数量（基于ip），这是以前的代码，很久没更新了。随后可能会更新。
 
