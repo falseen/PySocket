@@ -92,8 +92,9 @@ def new_close(orgin_method, self_socket, *args, **kwds):
             logging.info("[socket] remove the client %s" % (addr))
         else:
             client_list[addr]["client_num"] -= 1
-            self._all_client_list[server_addrs].update(client_list)
             # logging.debug("[socket] close the client socket %s:%d" % (addr, port))
+        self._all_client_list[server_addrs].update(client_list)
+
     return orgin_method(*args, **kwds)
 
 
