@@ -14,7 +14,7 @@ PySocket ，一个通过猴子补丁（monkey patch）动态修改 socket 的项
       
 * **proxy**：基本跟shadowscks一样，只是去掉了hook的代码。
 
-* **Limit_Clients**：限制客户端数量（基于ip），这是以前的代码，很久没更新了。随后可能会更新。
+* **Limit_Clients**：限制客户端数量（基于ip），支持tcp和udp，基本上完美了。
 
 * **orgin_socket**：原始的socket，放在这里只是为了方便查看代码。毕竟 _socket.pyd 是加密的。
 
