@@ -40,42 +40,18 @@ import binascii
 sys.path.insert(0, path)
 
 
-PROXY_TYPE = "socks5"
-PROXY_ADDR = "127.0.0.1"
-PROXY_PORT = 1080
-SOCKS5_REQUEST_DATA = b"\x05\x01\x00"
-BUF_SIZE = 32 * 1024
 
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def to_bytes(s):
-    if bytes != str:
-        if type(s) == str:
-            return s.encode('utf-8')
-    return s
+# 原始地址和端口
+orgin_addr = "114.114.114.114"
+orgin_port = 53
 
+# 修改后的地址和端口
+new_dst_addr = "114.114.115.115"
+new_dst_port = 53
 
-def to_str(s):
-    if bytes != str:
-        if type(s) == bytes:
-            return s.decode('utf-8')
-    return s
-
-
-def pack_addr(address):
-    address_str = to_str(address)
-    address = to_bytes(address)
-    for family in (socket.AF_INET, socket.AF_INET6):
-        try:
-            r = socket.inet_pton(family, address_str)
-            if family == socket.AF_INET6:
-                return b'\x04' + r
-            else:
-                return b'\x01' + r
-        except (TypeError, ValueError, OSError, IOError):
-            pass
-    if len(address) > 255:
-        address = address[:255]  # TODO
-    return b'\x03' + chr(len(address)) + address
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 
@@ -98,25 +74,24 @@ def new_self_method(self, method_name, new_method):
                                                 kwds: new_method(method, *args, **kwds), self, self))
 
 
-def set_self_blocking(function):
+def new_recvfrom(real_method, self, *args, **kwds):
+    data, src_addrs = real_method(*args, **kwds)
+    src_addr, src_port = src_addrs
+    if src_port == new_dst_port and src_addr == new_dst_addr:
+        # logging.info("fix %s:%d to %s:%d" % (src_addr, src_port, orgin_addr, orgin_port))
+        return data, (orgin_addr, orgin_port)
+    return data, src_addrs
 
-    @functools.wraps(function)
-    def wrapper(*args, **kwargs):
-        self = args[0]
-        try:
-            _is_blocking = self.gettimeout()
-            # if not blocking then set blocking
-            if _is_blocking == 0:
-                self.setblocking(True)
-            return function(*args, **kwargs)
-        except Exception as e:
-            print(e)
-            raise
-        finally:
-            # set orgin blcoking
-            if _is_blocking == 0:
-                self.setblocking(False)
-    return wrapper
+
+def new_sendto(orgin_method ,self, *args, **kwds):
+    data, dst_addrs = args
+    dst_addr, dst_port = dst_addrs
+    if dst_port == orgin_port and dst_addr == orgin_addr :
+        # logging.info("forward %s:%d to %s:%d" % (dst_addr, dst_port, new_dst_addr, new_dst_port))
+        new_self_method(self, 'recvfrom', new_recvfrom)
+        args = (data, (new_dst_addr, new_dst_port))
+    return_value = orgin_method(*args, **kwds)
+    return return_value
 
 
 # make a new socket class
@@ -124,23 +99,9 @@ class new_socket(socket.socket):
 
     def __init__(self, *args, **kwds):
         super(new_socket, self).__init__(*args, **kwds)
-        # new_self_method(self, 'sendto', new_sendto)
-        # new_self_method(self, 'recvfrom', new_recvfrom)
-
-    def sendto(real_method, self, *args, **kwds):
-        data, dst_addrs = args
-        dst_addr, dst_port = dst_addrs
-        if dst_port == 53:
-            self._is_proxy = True
-            UDP_SOCKS5_HEADER = b"\x00\x00\x00"
-            new_dst_addr = "8.8.8.8"
-            new_dst_port = 53
-            args = (data, (new_dst_addr, new_dst_port))
-        return_value = super(new_socket, self).sendto(*args, **kwds)
-        return return_value
+        new_self_method(self, 'sendto', new_sendto)
         
 
 
 # replace socket class to new_socket
-socket._socketobject = new_socket
-print(" replace socket class to new_socket")
+socket.socket = new_socket
