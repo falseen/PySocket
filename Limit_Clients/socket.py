@@ -104,8 +104,6 @@ def new_accept(orgin_method, self, *args, **kwds):
             for k,v in self._all_client_list[server_addrs].copy().items():
                 last_up_time = v["last_up_time"]
                 if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
-                    logging.info("[socket] remove the client %s" % (k))
-                    del client_list[k]
                     if set_close_timeout:
                         self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
                     self._all_client_list[server_addrs].update(client_list)
@@ -155,8 +153,8 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
 
 def new_bind(orgin_method, self, *args, **kwds):
     
-    # 如果是udp的绑定，则绑定地址一般是0。那这个socket就一定不是和客户端通信的。
-    # 此处主要是考虑到shadowsocks服务端在访问非客户端的时候会对udp进行绑定。
+    # 如果绑定地址是0，那这个 socket 就一定不是和客户端通信的。
+    # 此处主要是考虑到shadowsocks服务端在做流量转发的时候会对本地的socket进行绑定。
     if args[0][1] != 0:
         if only_port:
             server_addrs = '*:%s' % args[0][1]
