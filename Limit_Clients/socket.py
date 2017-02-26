@@ -51,7 +51,7 @@ sys.path.insert(0, path)
 set_close_timeout = False   # 是否清理指定时间内无数据收发的连接，仅对TCP有效，socket会自动关闭正常或异常断开的连接, 所以一般不用设置。
                             #   如果为True则根据下面的超时时间进行清理，如果为 False 则根据socket的超时时间来清理(5分钟左右)。
 
-recv_timeout = 1000         # 设置 tcp 清理连接的超时时间，单位毫秒（1000毫秒等于一分钟）。
+recv_timeout = 4000            # 设置 tcp 清理连接的超时时间，单位毫秒（1000毫秒等于一分钟）。
                             #    在此时间内无连接或无数据 接收 的连接会被清理。只针对 tcp。
 
 recvfrom_timeout = 60       # 设置 udp 清理连接的超时时间，单位秒。在此时间内无连接或无数据 接收 的连接会被清理。只针对 udp。
@@ -189,7 +189,7 @@ class new_client_socket(socket.socket):
     def new_close(self, *args, **kwds):
         addr, port = self.getpeername()
         server_addrs = self._server_addrs
-        client_list = self._all_client_list[server_addrs]
+        client_list = super(new_client_socket, self)._all_client_list[server_addrs]
         if client_list.get(addr, None) != None:
             last_up_time = client_list[addr]["last_up_time"]
             if client_list[addr]["client_num"] <= 1 and time.time() - last_up_time > recvfrom_timeout:
@@ -198,7 +198,7 @@ class new_client_socket(socket.socket):
             else:
                 client_list[addr]["client_num"] -= 1
                 # logging.debug("[socket] close the client socket %s:%d" % (addr, port))
-            self._all_client_list[server_addrs].update(client_list)
+            super(new_client_socket, self)._all_client_list[server_addrs].update(client_list)
         return super(new_client_socket, self).__init__(*args, **kwds)
 
 
