@@ -108,6 +108,9 @@ def new_accept(orgin_method, self, *args, **kwds):
                         self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
                     logging.info("[socket] remove the client %s" % (k))
                     del client_list[k]
+                    if client_list.get(client_ip, None) == None:
+                        client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
+                    client_list[client_ip]["client_num"] += 1
                     self._all_client_list[server_addrs].update(client_list)
                     self_socket._server_addrs = self._server_addrs
                     self_socket.close = self_socket.new_close
