@@ -70,8 +70,11 @@ def new_class_method(_class, method_name, new_method):
 # 动态patch实例方法
 def new_self_method(self, method_name, new_method):
     method = getattr(self, method_name)
-    setattr(self, method_name, types.MethodType(lambda *args, **
-                                                kwds: new_method(method, *args, **kwds), self, self))
+    info = sys.version_info
+    if info[0] >= 3:
+        setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self))
+    else:
+        setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self, self))
 
 
 def new_recvfrom(real_method, self, *args, **kwds):

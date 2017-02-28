@@ -77,7 +77,11 @@ def new_class_method(_class, method_name, new_method):
 # 动态patch实例方法
 def new_self_method(self, method_name, new_method):
     method = getattr(self, method_name)
-    setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self, self))
+    info = sys.version_info
+    if info[0] >= 3:
+        setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self))
+    else:
+        setattr(self, method_name, types.MethodType(lambda *args, **kwds: new_method(method, *args, **kwds), self, self))
 
 
 # 处理Tcp连接
@@ -211,5 +215,6 @@ setattr(socket.socket, 'last_log_time', [0])
 
 new_class_method(socket.socket, 'bind', new_bind)
 new_class_method(socket.socket, 'accept', new_accept)
+if not sys.version_info[0] >= 3:
+    socket._socketobject = new_client_socket
 socket.socket = new_socket
-socket._socketobject = new_client_socket
