@@ -93,7 +93,9 @@ def new_accept(orgin_method, self, *args, **kwds):
         client_ip, client_port = return_value[1]
         server_addrs = self._server_addrs
         client_list = self._all_client_list.get(server_addrs, {})
-        if len(client_list) < limit_clients_num or client_ip in client_list:
+        if client_ip in client_list:
+            return return_value
+        elif len(client_list) < limit_clients_num:
             self_socket._server_addrs = self._server_addrs
             self_socket.close = self_socket.new_close
             logging.debug("[socket] add %s:%d" %(client_ip, client_port))
