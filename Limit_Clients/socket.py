@@ -189,7 +189,8 @@ def new_bind(orgin_method, self, *args, **kwds):
             self._all_client_list.update({server_addrs:{}})
             logging.debug("[socket] bind the new new_accept new_recvfrom")
             new_self_method(self, 'accept', new_accept)
-            new_self_method(self, 'recvfrom', new_recvfrom)
+            if self.type == socket.SOCK_DGRAM:
+                new_self_method(self, 'recvfrom', new_recvfrom)
     orgin_method(self, *args, **kwds)
     
 
