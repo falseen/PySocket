@@ -96,7 +96,7 @@ def new_accept(orgin_method, self, *args, **kwds):
         if len(client_list) < limit_clients_num or client_ip in client_list:
             self_socket._server_addrs = self._server_addrs
             self_socket.close = self_socket.new_close
-            # logging.debug("[socket] add %s:%d" %(client_ip, client_port))
+            logging.debug("[socket] add %s:%d" %(client_ip, client_port))
             if client_list.get(client_ip, None) == None:
                 client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
             client_list[client_ip]["client_num"] += 1
@@ -120,7 +120,7 @@ def new_accept(orgin_method, self, *args, **kwds):
                     self_socket.close = self_socket.new_close
                     return return_value
         if time.time() - self.last_log_time[0] > 10:
-            logging.error("[socket] the server_addrs %s client more then the %d" % (server_addrs, limit_clients_num))
+            logging.error("[socket] the server_addrs %s client more than the %d" % (server_addrs, limit_clients_num))
             self.last_log_time[0] = time.time()
         self_socket.close()
 
@@ -139,7 +139,7 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
                 client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
             client_list[client_ip]["last_up_time"] = time.time()
             self._all_client_list[server_addrs].update(client_list)
-            # logging.debug("[socket] update last_up_time for %s" % client_ip)
+            logging.debug("[socket] update last_up_time for %s" % client_ip)
             return return_value
         else:
             for k,v in self._all_client_list[server_addrs].copy().items():
@@ -147,13 +147,13 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
                 if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
                     logging.info("[socket] remove the client %s" % (k))
                     del client_list[k]
-                    # logging.debug("[socket] add %s:%d" %(client_ip, client_port))
+                    logging.debug("[socket] add %s:%d" %(client_ip, client_port))
                     client_list.update({client_ip : {"client_num":0, "last_up_time":time.time()}})
                     self._all_client_list[server_addrs].update(client_list)
                     return return_value
 
         if time.time() - self.last_log_time[0] > 10:
-            logging.error("[socket] the server_addrs %s client more then the %d" % (server_addrs, limit_clients_num))
+            logging.error("[socket] the server_addrs %s client more than the %d" % (server_addrs, limit_clients_num))
             self.last_log_time[0] = time.time()
         new_tuple = [b'', return_value[1]]
         return_value = tuple(new_tuple)
@@ -204,7 +204,7 @@ class new_client_socket(socket.socket):
                 logging.info("[socket] remove the client %s" % (addr))
             else:
                 client_list[addr]["client_num"] -= 1
-                # logging.debug("[socket] close the client socket %s:%d" % (addr, port))
+                logging.debug("[socket] close the client socket %s:%d" % (addr, port))
             self._all_client_list[server_addrs].update(client_list)
         return super(new_client_socket, self).close(*args, **kwds)
 
