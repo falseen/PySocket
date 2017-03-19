@@ -36,6 +36,7 @@ import sys
 import time
 import logging
 import types
+import struct
 
 path = sys.path[0]
 sys.path.pop(0)
@@ -49,18 +50,30 @@ sys.path.insert(0, path)
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 set_close_timeout = False   # 是否清理指定时间内无数据收发的连接，仅对TCP有效，socket会自动关闭正常或异常断开的连接, 所以一般不用设置。
-                            #   如果为True则根据下面的超时时间进行清理，如果为 False 则根据socket的超时时间来清理(5分钟左右)。
+                            #   如果为True则根据下面的 recv_timeout 进行清理，如果为 False 则根据socket的默认超时时间来清理(5分钟左右)。
 
-recv_timeout = 4000            # 设置 tcp 清理连接的超时时间，单位毫秒（1000毫秒等于一分钟）。
-                               #    在此时间内无连接或无数据 接收 的连接会被清理。只针对 tcp，从测试来看，似乎没什么作用。
+recv_timeout = 120          # 配合上面的选项设置 tcp 清理连接的超时时间，单位秒。在此时间内无连接或无数据 收发 的连接会被清理。
+                            #    只针对 tcp。建议不要设置为0。一般客户端在关闭的时候会主动关闭连接，此选项主要是应对客户端的非正常关闭。
+                            #    比如说突然断网之类的。
 
-recvfrom_timeout = 60       # 设置 udp 清理连接的超时时间，单位秒。在此时间内无连接或无数据 接收 的连接会被清理。只针对 udp。
+recvfrom_timeout = 30       # 设置 udp 清理连接的超时时间，单位秒。在此时间内无连接或无数据 接收 的连接会被清理。只针对 udp。
 limit_clients_num = 1       # 设置每个端口的允许通过的ip数量，即客户端的ip数量
-only_port = True            # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据服务端ip+端口进行判断
+only_port = True            # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据服务端ip+端口进行判断。
+                            #     此功能主要适用于服务端有多个ip的情况，比如同时拥有ipv4和ipv6的ip。
+
+# 白名单，在此名单内的端口不受限制，可以留空。格式 white_list = [80, 443] 端口间用半角逗号分隔，注意一定要是数字，不能加引号。
+white_list = []
+
+# 黑名单，在此名单内的端口会受到限制。配置方式同上，可以留空。如果白名单和黑名单都留空，则默认限制所有端口。
+black_list = []
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+send_timeout = recv_timeout
+limit_all_clients = False
 
+if not black_list and not white_list:
+    limit_all_clients = True
 
 # 动态patch类方法
 def new_class_method(_class, method_name, new_method):
@@ -88,7 +101,7 @@ def new_self_method(self, method_name, new_method):
 def new_accept(orgin_method, self, *args, **kwds):
 
     while True:
-        return_value = orgin_method(self, *args, **kwds)
+        return_value = orgin_method(*args, **kwds)
         self_socket = return_value[0]
         client_ip, client_port = return_value[1]
         server_addrs = self._server_addrs
@@ -102,14 +115,17 @@ def new_accept(orgin_method, self, *args, **kwds):
             client_list[client_ip]["client_num"] += 1
             self._all_client_list[server_addrs].update(client_list)
             if set_close_timeout:
-                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
+                # set recv_timeout and send_timeout , struct.pack("II", some_num_secs, some_num_microsecs)
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("II", recv_timeout, 0))
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("II", send_timeout, 0))  
             return return_value
         else:
             for k,v in self._all_client_list[server_addrs].copy().items():
                 last_up_time = v["last_up_time"]
                 if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
                     if set_close_timeout:
-                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, recv_timeout)
+                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("II", recv_timeout, 0))
+                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("II", send_timeout, 0))
                     logging.info("[socket] remove the client %s" % (k))
                     del client_list[k]
                     if client_list.get(client_ip, None) == None:
@@ -120,58 +136,60 @@ def new_accept(orgin_method, self, *args, **kwds):
                     self_socket.close = self_socket.new_close
                     return return_value
         if time.time() - self.last_log_time[0] > 10:
-            logging.error("[socket] the server_addrs %s client more than the %d" % (server_addrs, limit_clients_num))
+            logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, limit_clients_num))
             self.last_log_time[0] = time.time()
         self_socket.close()
 
 
 # 处理Udp连接
 def new_recvfrom(orgin_method, self, *args, **kwds):
-
-    while True:
-        return_value = orgin_method(*args, **kwds)
-        server_addrs = self._server_addrs
-        client_ip, client_port = return_value[1]
-        client_list = self._all_client_list.get(server_addrs, {})
-        
-        if len(client_list) < limit_clients_num or client_ip in client_list:
-            if client_list.get(client_ip, None) == None:
-                client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
-            client_list[client_ip]["last_up_time"] = time.time()
-            self._all_client_list[server_addrs].update(client_list)
-            logging.debug("[socket] update last_up_time for %s" % client_ip)
-            return return_value
-        else:
-            for k,v in self._all_client_list[server_addrs].copy().items():
-                last_up_time = v["last_up_time"]
-                if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
-                    logging.info("[socket] remove the client %s" % (k))
-                    del client_list[k]
-                    logging.debug("[socket] add client %s:%d" %(client_ip, client_port))
-                    client_list.update({client_ip : {"client_num":0, "last_up_time":time.time()}})
-                    self._all_client_list[server_addrs].update(client_list)
-                    return return_value
-
-        if time.time() - self.last_log_time[0] > 10:
-            logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, limit_clients_num))
-            self.last_log_time[0] = time.time()
-        new_tuple = [b'', return_value[1]]
-        return_value = tuple(new_tuple)
+    return_value = orgin_method(*args, **kwds)
+    server_addrs = self._server_addrs
+    client_ip, client_port = return_value[1]
+    client_list = self._all_client_list.get(server_addrs, {})
+    
+    if len(client_list) < limit_clients_num or client_ip in client_list:
+        if client_list.get(client_ip, None) == None:
+            client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
+        client_list[client_ip]["last_up_time"] = time.time()
+        self._all_client_list[server_addrs].update(client_list)
+        logging.debug("[socket] update last_up_time for %s" % client_ip)
         return return_value
+    else:
+        for k,v in self._all_client_list[server_addrs].copy().items():
+            last_up_time = v["last_up_time"]
+            if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
+                logging.info("[socket] remove the client %s" % (k))
+                del client_list[k]
+                logging.debug("[socket] add client %s:%d" %(client_ip, client_port))
+                client_list.update({client_ip : {"client_num":0, "last_up_time":time.time()}})
+                self._all_client_list[server_addrs].update(client_list)
+                return return_value
+
+    if time.time() - self.last_log_time[0] > 10:
+        logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, limit_clients_num))
+        self.last_log_time[0] = time.time()
+    new_tuple = [b'', return_value[1]]
+    return_value = tuple(new_tuple)
+    return return_value
 
 
 def new_bind(orgin_method, self, *args, **kwds):
     
+    server_addres, server_port = args[0]
     # 如果绑定地址是0，那这个 socket 就一定不是和客户端通信的。
     # 此处主要是考虑到shadowsocks服务端在做流量转发的时候会对本地的socket进行绑定。
     if args[0][1] != 0:
-        if only_port:
-            server_addrs = '*:%s' % args[0][1]
-        else:
-            server_addrs = '%s:%s' % (args[0][0], args[0][1])
-        self._server_addrs = server_addrs
-        self._all_client_list.update({server_addrs:{}})
-        new_self_method(self, 'recvfrom', new_recvfrom)
+        if server_port in black_list or server_port not in white_list or limit_all_clients:
+            if only_port:
+                server_addrs = '*:%s' % server_port
+            else:
+                server_addrs = '%s:%s' % (server_addres, server_port)
+            self._server_addrs = server_addrs
+            self._all_client_list.update({server_addrs:{}})
+            logging.debug("[socket] bind the new new_accept new_recvfrom")
+            new_self_method(self, 'accept', new_accept)
+            new_self_method(self, 'recvfrom', new_recvfrom)
     orgin_method(self, *args, **kwds)
     
 
@@ -214,7 +232,6 @@ setattr(socket.socket, '_all_client_list', {})
 setattr(socket.socket, 'last_log_time', [0])
 
 new_class_method(socket.socket, 'bind', new_bind)
-new_class_method(socket.socket, 'accept', new_accept)
 if not sys.version_info[0] >= 3:
     socket._socketobject = new_client_socket
 socket.socket = new_socket
