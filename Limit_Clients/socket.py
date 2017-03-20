@@ -19,7 +19,7 @@
 # 功能：限制客户端数量（基于ip判断）
 #
 # 使用说明：1.将此文件放在程序根目录中即可生效，不用做其他设置（需要重新运行程序）。
-#          2.修改 recv_timeout 和 limit_clients_num 为你想要的数值。
+#          2.修改 recv_timeout 和 Limit_Clients_Num 为你想要的数值。
 #          3.如果你的服务器有ipv6或有多个ip,并且你想让这些ip分开限制，则可以设置 only_port 为 False 。
 #
 #
@@ -57,15 +57,18 @@ recv_timeout = 120          # 配合上面的选项设置 tcp 清理连接的超
                             #    比如说突然断网之类的。建议不要设置为0或120以下，因为 tcp keepalive的默认时间一般是120秒。
 
 recvfrom_timeout = 30       # 设置 udp 清理连接的超时时间，单位秒。在此时间内无连接或无数据 接收 的连接会被清理。只针对 udp。
-limit_clients_num = 1       # 设置每个端口的允许通过的ip数量，即客户端的ip数量
+
+Limit_Clients_Num = 1       # 设置每个端口的默认允许通过的ip数量，即客户端的ip数量。
+                            #   此为默认值，如果黑名单中没有定义，则按此选项的值来设置。
+                            
 only_port = True            # 设置是否只根据端口判断。如果为 True ，则只根据端口判断。如果为 False ，则会严格的根据服务端ip+端口进行判断。
                             #     此功能主要适用于服务端有多个ip的情况，比如同时拥有ipv4和ipv6的ip。
 
 # 白名单，在此名单内的端口不受限制，可以留空。格式 white_list = [80, 443] 端口间用半角逗号分隔，注意一定要是数字，不能加引号。
 white_list = []
 
-# 黑名单，在此名单内的端口会受到限制。配置方式同上，可以留空。如果白名单和黑名单都留空，则默认限制所有端口。
-black_list = []
+# 黑名单，在此名单内的端口会受到限制, 可以留空。格式 端口:ip数量， black_list = {80:1} 如果白名单和黑名单都留空，则默认限制所有端口。
+black_list = {}
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -106,7 +109,7 @@ def new_accept(orgin_method, self, *args, **kwds):
         client_ip, client_port = return_value[1]
         server_addrs = self._server_addrs
         client_list = self._all_client_list.get(server_addrs, {})
-        if len(client_list) < limit_clients_num or client_ip in client_list:
+        if len(client_list) < self._limit_clients_num or client_ip in client_list:
             self_socket._server_addrs = self._server_addrs
             self_socket.close = self_socket.new_close
             logging.debug("[socket] add client %s:%d" %(client_ip, client_port))
@@ -136,7 +139,7 @@ def new_accept(orgin_method, self, *args, **kwds):
                     self_socket.close = self_socket.new_close
                     return return_value
         if time.time() - self.last_log_time[0] > 10:
-            logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, limit_clients_num))
+            logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, self._limit_clients_num))
             self.last_log_time[0] = time.time()
         self_socket.close()
 
@@ -148,7 +151,7 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
     client_ip, client_port = return_value[1]
     client_list = self._all_client_list.get(server_addrs, {})
     
-    if len(client_list) < limit_clients_num or client_ip in client_list:
+    if len(client_list) < self._limit_clients_num or client_ip in client_list:
         if client_list.get(client_ip, None) == None:
             client_list.update({client_ip : {"client_num":0, "last_up_time":0}})
         client_list[client_ip]["last_up_time"] = time.time()
@@ -167,7 +170,7 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
                 return return_value
 
     if time.time() - self.last_log_time[0] > 10:
-        logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, limit_clients_num))
+        logging.error("[socket] the server_addrs %s client more than %d" % (server_addrs, self._limit_clients_num))
         self.last_log_time[0] = time.time()
     new_tuple = [b'', return_value[1]]
     return_value = tuple(new_tuple)
@@ -187,6 +190,7 @@ def new_bind(orgin_method, self, *args, **kwds):
                 server_addrs = '%s:%s' % (server_addres, server_port)
             self._server_addrs = server_addrs
             self._all_client_list.update({server_addrs:{}})
+            self._limit_clients_num = black_list.get(server_port, Limit_Clients_Num)
             logging.debug("[socket] bind the new new_accept new_recvfrom")
             new_self_method(self, 'accept', new_accept)
             if self.type == socket.SOCK_DGRAM:
