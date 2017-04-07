@@ -180,7 +180,7 @@ def new_recvfrom(orgin_method, self, *args, **kwds):
 
 def new_bind(orgin_method, self, *args, **kwds):
     
-    server_addres, server_port = args[0]
+    server_addres, server_port = args[0][:2]
     # 如果绑定地址是0，那这个 socket 就一定不是和客户端通信的。
     # 此处主要是考虑到shadowsocks服务端在做流量转发的时候会对本地的socket进行绑定。
     if args[0][1] != 0:
