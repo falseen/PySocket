@@ -5,6 +5,10 @@ PySocket ，一个通过猴子补丁（monkey patch）动态修改 socket 的项
 通过猴子补丁的方式给 socket 动态地添加一些增强功能，比如限制客户端数量、前置代理什么的。
 **使用的时候只要把对应文件夹中的 socket.py 文件放到程序的目录即可生效，不用修改任何源码。**
 
+**注意：**
+* 对于通过pip安装的程序，需要放到执行文件所在的文件夹，但不建议这么做，可能会影响其他程序。建议不要用pip安装。
+* 对于shadowsocks来说，需要把socket.py文件放到根目录（即shadowsocks目录），而不能放到 shadowsocks/shadowsocks 目录。具体原因不明，有时间再好好查一下。
+
 ## 说明：
 
 项目中每个文件夹代表不同的功能。
@@ -29,5 +33,6 @@ PySocket ，一个通过猴子补丁（monkey patch）动态修改 socket 的项
 **最后我想说的是，python 真的是世界上最好的语言，太自由了！！！**
 
 ## TODO
-**Limit_Clients**
 * 用recv方法替换掉现有的close方法，根据上次接收到的时间来清理不活动的连接。
+
+* 用hook的方式修改socket，示例：`pysocket python test.py`
