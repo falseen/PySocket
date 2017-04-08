@@ -107,7 +107,7 @@ def new_accept(orgin_method, self, *args, **kwds):
     while True:
         return_value = orgin_method(*args, **kwds)
         self_socket = return_value[0]
-        client_ip, client_port = return_value[1]
+        client_ip, client_port = return_value[1][:2]
         server_addrs = self._server_addrs
         client_list = self._all_client_list.get(server_addrs, {})
         if len(client_list) < self._limit_clients_num or client_ip in client_list:
@@ -149,7 +149,7 @@ def new_accept(orgin_method, self, *args, **kwds):
 def new_recvfrom(orgin_method, self, *args, **kwds):
     return_value = orgin_method(*args, **kwds)
     server_addrs = self._server_addrs
-    client_ip, client_port = return_value[1]
+    client_ip, client_port = return_value[1][:2]
     client_list = self._all_client_list.get(server_addrs, {})
     
     if len(client_list) < self._limit_clients_num or client_ip in client_list:
