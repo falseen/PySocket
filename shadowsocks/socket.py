@@ -395,6 +395,8 @@ class socksocket(_BaseSocket):
         self.proxy_peername = None
 
         self._timeout = None
+        self._is_client = True
+        self.proxy_udp_host = ("0.0.0.0",0)
 
     def _readall(self, file, count):
         """
@@ -456,6 +458,11 @@ class socksocket(_BaseSocket):
         Implements proxy connection for UDP sockets,
         which happens during the bind() phase.
         """
+        # socket client
+        if pos[0][1] == 0:
+            self._is_client = True
+        else:
+            self._is_client = False
         proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
         if not proxy_type or self.type != socket.SOCK_DGRAM:
             return _orig_socket.bind(self, *pos, **kw)
@@ -490,12 +497,13 @@ class socksocket(_BaseSocket):
         # but some proxies return a private IP address (10.x.y.z)
         host, _ = proxy
         _, port = relay
-        super(socksocket, self).connect((host, port))
+        #super(socksocket, self).connect((host, port))
         super(socksocket, self).settimeout(self._timeout)
         self.proxy_sockname = ("0.0.0.0", 0)  # Unknown
+        self.proxy_udp_host = (host, port)
 
     def sendto(self, bytes, *args, **kwargs):
-        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP:
+        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP or not self._is_client:
             return super(socksocket, self).sendto(bytes, *args, **kwargs)
         if not self._proxyconn:
             self.bind(("", 0))
@@ -509,19 +517,19 @@ class socksocket(_BaseSocket):
         STANDALONE = b"\x00"
         header.write(STANDALONE)
         self._write_SOCKS5_address(address, header)
-
+        super(socksocket, self).connect(self.proxy_udp_host)
         sent = super(socksocket, self).send(
             header.getvalue() + bytes, *flags, **kwargs)
         return sent - header.tell()
 
     def send(self, bytes, flags=0, **kwargs):
-        if self.type == socket.SOCK_DGRAM and self.proxy[0] != HTTP:
-            return self.sendto(bytes, flags, self.proxy_peername, **kwargs)
+        if self.type == socket.SOCK_DGRAM and self.proxy[0] != HTTP and self._is_client:
+            return self.sendto(bytes, flags, self.proxy_udp_host, **kwargs)
         else:
             return super(socksocket, self).send(bytes, flags, **kwargs)
 
     def recvfrom(self, bufsize, flags=0):
-        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP:
+        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP or not self._is_client:
             return super(socksocket, self).recvfrom(bufsize, flags)
         if not self._proxyconn:
             self.bind(("", 0))
