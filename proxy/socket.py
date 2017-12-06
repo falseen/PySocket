@@ -459,13 +459,23 @@ class socksocket(_BaseSocket):
         which happens during the bind() phase.
         """
         # socket client
-        if pos[0][1] == 0:
+        bind_host, bind_port = pos[0]
+        proxy = self._proxy_addr()
+        if bind_port == 0:
             self._is_client = True
         else:
             self._is_client = False
         proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
-        if not proxy_type or self.type != socket.SOCK_DGRAM:
+        if not proxy_type or not self._is_client:
             return _orig_socket.bind(self, *pos, **kw)
+        elif self.type != socket.SOCK_DGRAM and self._is_client:
+            if "127.0.0.1" in proxy or u"127.0.0.1" in proxy:
+                _pos_list = list(pos)
+                _pos_list[0] = ("127.0.0.1", bind_port)
+                _pos = tuple(_pos_list)
+            else:
+                _pos = pos
+            return _orig_socket.bind(self, *_pos, **kw)
         elif self.proxy[0] == HTTP:
             return _orig_socket.bind(self, *pos, **kw)
 
