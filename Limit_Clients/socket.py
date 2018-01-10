@@ -212,6 +212,7 @@ class new_client_socket(socket.socket):
 
     def __init__(self, *args, **kwds):
         super(new_client_socket, self).__init__(*args, **kwds)
+        new_self_method(self, "bind", new_bind)
 
     def close(self ,*args, **kwds):
         super(new_client_socket, self).__init__(*args, **kwds)
@@ -237,7 +238,7 @@ class new_client_socket(socket.socket):
 setattr(socket.socket, '_all_client_list', {})
 setattr(socket.socket, 'last_log_time', [0])
 
-new_class_method(socket.socket, 'bind', new_bind)
+# new_class_method(socket.socket, 'bind', new_bind)
 if not sys.version_info[0] >= 3:
     socket._socketobject = new_client_socket
 socket.socket = new_socket
