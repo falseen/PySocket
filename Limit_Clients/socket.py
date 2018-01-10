@@ -73,6 +73,7 @@ black_list = {}
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+PYTHON_VERSION = sys.version_info[0]
 send_timeout = recv_timeout
 limit_all_clients = False
 
@@ -196,27 +197,25 @@ def new_bind(orgin_method, self, *args, **kwds):
             new_self_method(self, 'accept', new_accept)
             if self.type == socket.SOCK_DGRAM:
                 new_self_method(self, 'recvfrom', new_recvfrom)
-    orgin_method(self, *args, **kwds)
+    if PYTHON_VERSION >= 3:
+        orgin_method(*args, **kwds)
+    else:
+        orgin_method(self, *args, **kwds)
     
 
 
 # 自定义 socket 类，可以自定义实例方法或属性。
+# 为 accept 生成的socket对象创建一个单独的类，目的是给其动态地绑定 close 方法。
 class new_socket(socket.socket):
 
     def __init__(self, *args, **kwds):
         super(new_socket, self).__init__(*args, **kwds)
-
-
-# 为 accept 生成的socket对象创建一个单独的类，目的是给其动态地绑定 close 方法。
-class new_client_socket(socket.socket):
-
-    def __init__(self, *args, **kwds):
-        super(new_client_socket, self).__init__(*args, **kwds)
-        new_self_method(self, "bind", new_bind)
+        if PYTHON_VERSION >= 3:
+            new_class_method(self, 'bind', new_bind)
 
     def close(self ,*args, **kwds):
-        super(new_client_socket, self).__init__(*args, **kwds)
-
+        super(new_socket, self).__init__(*args, **kwds)
+        
     # 自定义 close 方法，让其在关闭的时候从列表中清理掉自身的 socket 或 ip。
     def new_close(self, *args, **kwds):
         addr, port = self.getpeername()[0:2]
@@ -231,14 +230,16 @@ class new_client_socket(socket.socket):
                 client_list[addr]["client_num"] -= 1
                 logging.debug("[socket] close the client socket %s:%d" % (addr, port))
             self._all_client_list[server_addrs].update(client_list)
-        return super(new_client_socket, self).close(*args, **kwds)
+        return super(new_socket, self).close(*args, **kwds)
+            
 
 
 # 添加类属性， 此属性是全局的，所有socket对象都共享此属性。
 setattr(socket.socket, '_all_client_list', {})
 setattr(socket.socket, 'last_log_time', [0])
 
-# new_class_method(socket.socket, 'bind', new_bind)
-if not sys.version_info[0] >= 3:
-    socket._socketobject = new_client_socket
+# python2
+if not PYTHON_VERSION >= 3:
+    new_class_method(socket.socket, 'bind', new_bind)
+    socket._socketobject = new_socket
 socket.socket = new_socket
