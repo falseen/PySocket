@@ -120,16 +120,16 @@ def new_accept(orgin_method, self, *args, **kwds):
             self._all_client_list[server_addrs].update(client_list)
             if set_close_timeout:
                 # set recv_timeout and send_timeout , struct.pack("II", some_num_secs, some_num_microsecs)
-                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("II", recv_timeout, 0))
-                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("II", send_timeout, 0))  
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("LL", recv_timeout, 0))
+                self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("LL", send_timeout, 0))
             return return_value
         else:
             for k,v in self._all_client_list[server_addrs].copy().items():
                 last_up_time = v["last_up_time"]
                 if time.time() - last_up_time > recvfrom_timeout and v["client_num"] < 1:
                     if set_close_timeout:
-                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("II", recv_timeout, 0))
-                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("II", send_timeout, 0))
+                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("LL", recv_timeout, 0))
+                        self_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("LL", send_timeout, 0))
                     logging.info("[socket] remove the client %s" % (k))
                     del client_list[k]
                     if client_list.get(client_ip, None) == None:
@@ -218,7 +218,7 @@ class new_client_socket(socket.socket):
 
     # 自定义 close 方法，让其在关闭的时候从列表中清理掉自身的 socket 或 ip。
     def new_close(self, *args, **kwds):
-        addr, port = self.getpeername()
+        addr, port = self.getpeername()[0:2]
         server_addrs = self._server_addrs
         client_list = self._all_client_list[server_addrs]
         if client_list.get(addr, None) != None:
